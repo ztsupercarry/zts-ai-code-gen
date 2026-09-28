@@ -1,0 +1,17 @@
+# AI
+langchain4j:
+  open-ai:
+    chat-model:
+      base-url: https://api.deepseek.com
+      api-key: your-api-key
+      model-name: deepseek-flash
+      log-requests: true
+      log-responses: true
+      max-tokens: 8192
+    streaming-chat-model:
+      base-url: https://api.deepseek.com
+      api-key: your-api-key
+      model-name: deepseek-flash
+      max-tokens: 8192
+      log-requests: false
+      log-responses: false

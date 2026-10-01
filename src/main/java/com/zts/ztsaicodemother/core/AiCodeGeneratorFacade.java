@@ -1,6 +1,7 @@
 package com.zts.ztsaicodemother.core;
 
 import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.util.StrUtil;
 import com.zts.ztsaicodemother.ai.AiCodeGeneratorService;
 import com.zts.ztsaicodemother.ai.model.HtmlCodeResult;
 import com.zts.ztsaicodemother.ai.model.MultiFileCodeResult;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 
 /**
  * AI 代码生成门面类，组合代码生成和保存功能
@@ -82,27 +84,98 @@ public class AiCodeGeneratorFacade {
         };
     }
 
+    /**
+     * 处理流式生成的代码：边接收边拼接，流结束后解析并保存
+     *
+     * @param codeStream   代码流
+     * @param codeGenType  代码生成类型
+     * @param appId        应用 ID
+     * @return 原样透传的代码流（错误不会被吞掉）
+     */
     private Flux<String> processCodeStream(Flux<String> codeStream, CodeGenTypeEnum codeGenType, Long appId) {
         StringBuilder codeBuilder = new StringBuilder();
         return codeStream
                 .doOnNext(codeBuilder::append)
                 .doOnComplete(() -> {
-                    try {
-                        // 流式返回完成后保存代码
-                        String completeCode = codeBuilder.toString();
-                        // 测试
-                        FileUtil.writeString(completeCode,
-                                System.getProperty("user.dir") + "/tmp/last_raw_" + appId + ".txt",
-                                java.nio.charset.StandardCharsets.UTF_8);
-                        // 使用执行器解析代码
-                        Object parsedResult = CodeParserExecutor.executeParser(completeCode, codeGenType);
-                        // 使用执行器保存代码
-                        File saveDir = CodeFileSaverExecutor.executeSaver(parsedResult, codeGenType, appId);
-                        log.info("保存成功，路径为：" + saveDir.getAbsolutePath());
-                    } catch (Exception e) {
-                        log.error("保存失败：{}", e.getMessage());
+                    // 流式返回完成后保存代码
+                    String completeCode = codeBuilder.toString();
+                    if (StrUtil.isBlank(completeCode)) {
+                        log.error("模型没有返回任何内容，跳过解析与保存（appId={}, 类型={}）。"
+                                        + "常见原因：thinking 占满输出预算、流被读超时中断、上游返回了空响应",
+                                appId, codeGenType.getValue());
+                        return;
+                    }
+                    saveCode(completeCode, codeGenType, appId);
+                })
+                .doOnError(throwable -> {
+                    String partialCode = codeBuilder.toString();
+                    log.error("流式生成失败（已收到 {} 个字符，appId={}, 类型={}）。"
+                                    + "常见原因：输出被 max-tokens 截断、读超时、上游报错或连接被关闭；"
+                                    + "若异常是「completeResponse is null」的 NPE，说明整条流没有返回任何正文内容",
+                            partialCode.length(), appId, codeGenType.getValue(), throwable);
+                    // 出错时把已经收到的内容也落盘，尽量保留半成品，方便排查和续写
+                    if (StrUtil.isNotBlank(partialCode)) {
+                        saveCode(partialCode, codeGenType, appId);
                     }
                 });
+    }
+
+    /**
+     * 解析并保存代码，同时把模型的原始响应落盘，便于排查输出格式问题
+     *
+     * @param completeCode 模型返回的完整内容，或出错时已经收到的部分内容
+     * @param codeGenType  代码生成类型
+     * @param appId        应用 ID
+     */
+    private void saveCode(String completeCode, CodeGenTypeEnum codeGenType, Long appId) {
+        // 原始响应落盘，出问题时可以直接查看模型到底输出了什么
+        dumpRawContent(completeCode, appId);
+        try {
+            // 使用执行器解析代码
+            Object parsedResult = CodeParserExecutor.executeParser(completeCode, codeGenType);
+            // 多文件缺少 CSS / JS 时给出明确告警，避免只保存了一个 html 却不自知
+            if (parsedResult instanceof MultiFileCodeResult multiFileCodeResult
+                    && (StrUtil.isBlank(multiFileCodeResult.getCssCode())
+                    || StrUtil.isBlank(multiFileCodeResult.getJsCode()))) {
+                log.warn("多文件解析结果不完整：css={}, js={}（模型可能只输出了一部分，请看原始响应文件 {}）",
+                        StrUtil.isBlank(multiFileCodeResult.getCssCode()) ? "缺失" : "正常",
+                        StrUtil.isBlank(multiFileCodeResult.getJsCode()) ? "缺失" : "正常",
+                        getRawContentPath(appId));
+            }
+            // 使用执行器保存代码
+            File saveDir = CodeFileSaverExecutor.executeSaver(parsedResult, codeGenType, appId);
+            log.info("保存成功，路径为：{}", saveDir.getAbsolutePath());
+        } catch (Exception e) {
+            // 打完整堆栈，避免只看到一句没有上下文的提示
+            log.error("解析或保存代码失败（appId={}, 类型={}），原始响应已保存到 {}",
+                    appId, codeGenType.getValue(), getRawContentPath(appId), e);
+        }
+    }
+
+    /**
+     * 把模型的原始响应保存到临时文件，便于排查解析问题
+     *
+     * @param content 原始响应内容
+     * @param appId   应用 ID
+     */
+    private void dumpRawContent(String content, Long appId) {
+        String path = getRawContentPath(appId);
+        try {
+            FileUtil.writeString(content, path, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            // 落盘失败不能影响主流程
+            log.warn("写入原始响应文件失败：{}", path, e);
+        }
+    }
+
+    /**
+     * 原始响应文件的路径
+     *
+     * @param appId 应用 ID
+     * @return 文件路径
+     */
+    private String getRawContentPath(Long appId) {
+        return System.getProperty("user.dir") + "/tmp/last_raw_" + appId + ".txt";
     }
 
 }

@@ -7,11 +7,14 @@ langchain4j:
       model-name: deepseek-flash
       log-requests: true
       log-responses: true
+      strict-json-schema: true
+      response-format: json_object
       max-tokens: 8192
     streaming-chat-model:
       base-url: https://api.deepseek.com
       api-key: your-api-key
       model-name: deepseek-flash
-      max-tokens: 8192
+      max-tokens: 65536
       log-requests: false
       log-responses: false
+      reasoning-effort: low

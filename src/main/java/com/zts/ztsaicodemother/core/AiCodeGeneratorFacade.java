@@ -1,5 +1,6 @@
 package com.zts.ztsaicodemother.core;
 
+import cn.hutool.core.io.FileUtil;
 import com.zts.ztsaicodemother.ai.AiCodeGeneratorService;
 import com.zts.ztsaicodemother.ai.model.HtmlCodeResult;
 import com.zts.ztsaicodemother.ai.model.MultiFileCodeResult;
@@ -30,20 +31,21 @@ public class AiCodeGeneratorFacade {
      *
      * @param userMessage       用户提示词
      * @param codeGenTypeEnum   生成类型
+     * @param appId 应用 ID
      * @return  保存的目录
      */
-    public File generateAndSaveCode(String userMessage, CodeGenTypeEnum codeGenTypeEnum) {
+    public File generateAndSaveCode(String userMessage, CodeGenTypeEnum codeGenTypeEnum, Long appId) {
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "生成类型不能为空");
         }
         return switch (codeGenTypeEnum) {
             case HTML -> {
                 HtmlCodeResult result = aiCodeGeneratorService.generateHtmlCode(userMessage);
-                yield CodeFileSaverExecutor.executeSaver(result, CodeGenTypeEnum.HTML);
+                yield CodeFileSaverExecutor.executeSaver(result, CodeGenTypeEnum.HTML, appId);
             }
             case MULTI_FILE -> {
                 MultiFileCodeResult result = aiCodeGeneratorService.generateMultiFileCode(userMessage);
-                yield CodeFileSaverExecutor.executeSaver(result, CodeGenTypeEnum.MULTI_FILE);
+                yield CodeFileSaverExecutor.executeSaver(result, CodeGenTypeEnum.MULTI_FILE, appId);
             }
             default -> {
                 String errorMessage = "不支持的生成类型：" + codeGenTypeEnum.getValue();
@@ -57,20 +59,21 @@ public class AiCodeGeneratorFacade {
      *
      * @param userMessage       用户提示词
      * @param codeGenTypeEnum   生成类型
+     * @param appId 应用 ID
      * @return  保存的目录
      */
-    public Flux<String> generateAndSaveCodeStream(String userMessage, CodeGenTypeEnum codeGenTypeEnum) {
+    public Flux<String> generateAndSaveCodeStream(String userMessage, CodeGenTypeEnum codeGenTypeEnum, Long appId) {
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "生成类型不能为空");
         }
         return switch (codeGenTypeEnum) {
             case HTML -> {
                 Flux<String> codeStream = aiCodeGeneratorService.generateHtmlCodeStream(userMessage);
-                yield processCodeStream(codeStream, CodeGenTypeEnum.HTML);
+                yield processCodeStream(codeStream, CodeGenTypeEnum.HTML, appId);
             }
             case MULTI_FILE -> {
                 Flux<String> codeStream = aiCodeGeneratorService.generateMultiFileCodeStream(userMessage);
-                yield processCodeStream(codeStream, CodeGenTypeEnum.MULTI_FILE);
+                yield processCodeStream(codeStream, CodeGenTypeEnum.MULTI_FILE, appId);
             }
             default -> {
                 String errorMessage = "不支持的生成类型：" + codeGenTypeEnum.getValue();
@@ -79,7 +82,7 @@ public class AiCodeGeneratorFacade {
         };
     }
 
-    private Flux<String> processCodeStream(Flux<String> codeStream, CodeGenTypeEnum codeGenType) {
+    private Flux<String> processCodeStream(Flux<String> codeStream, CodeGenTypeEnum codeGenType, Long appId) {
         StringBuilder codeBuilder = new StringBuilder();
         return codeStream
                 .doOnNext(codeBuilder::append)
@@ -87,10 +90,14 @@ public class AiCodeGeneratorFacade {
                     try {
                         // 流式返回完成后保存代码
                         String completeCode = codeBuilder.toString();
+                        // 测试
+                        FileUtil.writeString(completeCode,
+                                System.getProperty("user.dir") + "/tmp/last_raw_" + appId + ".txt",
+                                java.nio.charset.StandardCharsets.UTF_8);
                         // 使用执行器解析代码
                         Object parsedResult = CodeParserExecutor.executeParser(completeCode, codeGenType);
                         // 使用执行器保存代码
-                        File saveDir = CodeFileSaverExecutor.executeSaver(parsedResult, codeGenType);
+                        File saveDir = CodeFileSaverExecutor.executeSaver(parsedResult, codeGenType, appId);
                         log.info("保存成功，路径为：" + saveDir.getAbsolutePath());
                     } catch (Exception e) {
                         log.error("保存失败：{}", e.getMessage());

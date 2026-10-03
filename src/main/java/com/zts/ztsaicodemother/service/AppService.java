@@ -2,6 +2,7 @@ package com.zts.ztsaicodemother.service;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
+import com.zts.ztsaicodemother.model.dto.app.AppAddRequest;
 import com.zts.ztsaicodemother.model.dto.app.AppQueryRequest;
 import com.zts.ztsaicodemother.model.entity.App;
 import com.zts.ztsaicodemother.model.entity.User;
@@ -16,6 +17,25 @@ import java.util.List;
  * @author <a href="https://github.com/ztsupercarry">ztsupercarry</a>
  */
 public interface AppService extends IService<App> {
+
+    /**
+     * 根据对话生成应用
+     *
+     * @param appId
+     * @param message
+     * @param loginUser
+     * @return
+     */
+    Flux<String> chatToGenCode(Long appId, String message, User loginUser);
+
+    /**
+     * 应用部署
+     *
+     * @param appId     应用 ID
+     * @param loginUser 登录用户
+     * @return 可访问的部署地址
+     */
+    String deployApp(Long appId, User loginUser);
 
     /**
      * 获取脱敏后的应用信息
@@ -41,13 +61,4 @@ public interface AppService extends IService<App> {
      */
     QueryWrapper getQueryWrapper(AppQueryRequest appQueryRequest);
 
-    /**
-     * 根据对话生成应用
-     *
-     * @param appId
-     * @param message
-     * @param loginUser
-     * @return
-     */
-    Flux<String> chatToGenCode(Long appId, String message, User loginUser);
 }

@@ -14,10 +14,7 @@ import com.zts.ztsaicodemother.constant.UserConstant;
 import com.zts.ztsaicodemother.exception.BusinessException;
 import com.zts.ztsaicodemother.exception.ErrorCode;
 import com.zts.ztsaicodemother.exception.ThrowUtils;
-import com.zts.ztsaicodemother.model.dto.app.AppAddRequest;
-import com.zts.ztsaicodemother.model.dto.app.AppAdminUpdateRequest;
-import com.zts.ztsaicodemother.model.dto.app.AppQueryRequest;
-import com.zts.ztsaicodemother.model.dto.app.AppUpdateRequest;
+import com.zts.ztsaicodemother.model.dto.app.*;
 import com.zts.ztsaicodemother.model.entity.App;
 import com.zts.ztsaicodemother.model.entity.User;
 import com.zts.ztsaicodemother.model.enums.CodeGenTypeEnum;
@@ -89,6 +86,18 @@ public class AppController {
                                 .data("")
                                 .build()
                 ));
+    }
+
+    @PostMapping("/deploy")
+    public BaseResponse<String> deployApp(@RequestBody AppDeployRequest appDeployRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(appDeployRequest == null, ErrorCode.PARAMS_ERROR);
+        Long appId = appDeployRequest.getAppId();
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+        // 获取当前登录用户
+        User loginUser = userService.getLoginUser(request);
+        // 调用服务部署应用
+        String deployUrl = appService.deployApp(appId, loginUser);
+        return ResultUtils.success(deployUrl);
     }
 
     /**

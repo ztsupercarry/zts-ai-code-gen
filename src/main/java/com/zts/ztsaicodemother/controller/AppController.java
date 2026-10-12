@@ -123,7 +123,7 @@ public class AppController {
         app.setAppName(defaultAppName.substring(0,
                 Math.min(defaultAppName.length(), AppConstant.DEFAULT_APP_NAME_LENGTH)));
         // 代码生成类型默认为多文件生成
-        app.setCodeGenType(CodeGenTypeEnum.MULTI_FILE.getValue());
+        app.setCodeGenType(CodeGenTypeEnum.VUE_PROJECT.getValue());
         boolean result = appService.save(app);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(app.getId());

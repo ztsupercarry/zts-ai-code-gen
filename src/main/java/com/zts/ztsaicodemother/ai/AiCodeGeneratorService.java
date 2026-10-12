@@ -2,7 +2,9 @@ package com.zts.ztsaicodemother.ai;
 
 import com.zts.ztsaicodemother.ai.model.HtmlCodeResult;
 import com.zts.ztsaicodemother.ai.model.MultiFileCodeResult;
+import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.SystemMessage;
+import dev.langchain4j.service.UserMessage;
 import reactor.core.publisher.Flux;
 
 public interface AiCodeGeneratorService {
@@ -42,5 +44,14 @@ public interface AiCodeGeneratorService {
      */
     @SystemMessage(fromResource = "prompt/codegen-multi-file-system-prompt.txt")
     Flux<String> generateMultiFileCodeStream(String userMessage);
+
+    /**
+     * 生成 Vue 项目代码（流式）
+     *
+     * @param userMessage 用户消息
+     * @return 生成的代码结果
+     */
+    @SystemMessage(fromResource = "prompt/codegen-vue-project-system-prompt.txt")
+    Flux<String> generateVueProjectCodeStream(@MemoryId long appId, @UserMessage String userMessage);
 
 }

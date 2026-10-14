@@ -7,6 +7,9 @@ import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
+import com.zts.ztsaicodemother.ai.AiCodeGenTypeRoutingService;
+import com.zts.ztsaicodemother.ai.AiCodeGenTypeRoutingServiceFactory;
+import com.zts.ztsaicodemother.common.ResultUtils;
 import com.zts.ztsaicodemother.constant.AppConstant;
 import com.zts.ztsaicodemother.core.AiCodeGeneratorFacade;
 import com.zts.ztsaicodemother.core.builder.VueProjectBuilder;
@@ -15,6 +18,7 @@ import com.zts.ztsaicodemother.exception.BusinessException;
 import com.zts.ztsaicodemother.exception.ErrorCode;
 import com.zts.ztsaicodemother.exception.ThrowUtils;
 import com.zts.ztsaicodemother.mapper.AppMapper;
+import com.zts.ztsaicodemother.model.dto.app.AppAddRequest;
 import com.zts.ztsaicodemother.model.dto.app.AppQueryRequest;
 import com.zts.ztsaicodemother.model.entity.App;
 import com.zts.ztsaicodemother.model.entity.User;
@@ -27,6 +31,7 @@ import com.zts.ztsaicodemother.service.ChatHistoryService;
 import com.zts.ztsaicodemother.service.UserService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
@@ -75,6 +80,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     @Resource
     private ScreenshotServiceImpl screenshotService;
 
+    @Resource
+    private AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService;
+
     @Override
     public Flux<String> chatToGenCode(Long appId, String message, User loginUser) {
         // 1. 参数校验
@@ -100,6 +108,29 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         // 7. 收集 AI 响应内容并在完成后记录到对话历史
         StringBuilder aiResponseBuilder = new StringBuilder();
         return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, loginUser, codeGenTypeEnum);
+    }
+
+    @Override
+    public Long createApp(AppAddRequest appAddRequest, User loginUser) {
+        // 参数校验
+        String initPrompt = appAddRequest.getInitPrompt();
+        ThrowUtils.throwIf(StrUtil.isBlank(initPrompt), ErrorCode.PARAMS_ERROR, "初始化 prompt 不能为空");
+        // 构造入库对象
+        App app = new App();
+        BeanUtil.copyProperties(appAddRequest, app);
+        app.setUserId(loginUser.getId());
+        // 应用名称暂时为 initPrompt 的前 12 位
+        String defaultAppName = initPrompt.trim();
+        app.setAppName(defaultAppName.substring(0,
+                Math.min(defaultAppName.length(), AppConstant.DEFAULT_APP_NAME_LENGTH)));
+        // 使用 AI 选择代码生成类型
+        CodeGenTypeEnum selectedCodeGenType  = aiCodeGenTypeRoutingService.routeCodeGenType(initPrompt);
+        app.setCodeGenType(selectedCodeGenType.getValue());
+        // 插入数据库
+        boolean result = this.save(app);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        log.info("应用创建成功，ID: {}, 类型: {}", app.getId(), selectedCodeGenType.getValue());
+        return app.getId();
     }
 
     @Override

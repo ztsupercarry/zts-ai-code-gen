@@ -159,21 +159,8 @@ public class AppController {
         ThrowUtils.throwIf(appAddRequest == null, ErrorCode.PARAMS_ERROR);
         // 获取当前登录用户
         User loginUser = userService.getLoginUser(request);
-        String initPrompt = appAddRequest.getInitPrompt();
-        ThrowUtils.throwIf(StrUtil.isBlank(initPrompt), ErrorCode.PARAMS_ERROR, "初始化 prompt 不能为空");
-        // 构造入库对象
-        App app = new App();
-        BeanUtil.copyProperties(appAddRequest, app);
-        app.setUserId(loginUser.getId());
-        // 应用名称暂时为 initPrompt 的前 12 位
-        String defaultAppName = initPrompt.trim();
-        app.setAppName(defaultAppName.substring(0,
-                Math.min(defaultAppName.length(), AppConstant.DEFAULT_APP_NAME_LENGTH)));
-        // 代码生成类型默认为多文件生成
-        app.setCodeGenType(CodeGenTypeEnum.VUE_PROJECT.getValue());
-        boolean result = appService.save(app);
-        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
-        return ResultUtils.success(app.getId());
+        Long appId = appService.createApp(appAddRequest, loginUser);
+        return ResultUtils.success(appId);
     }
 
     /**

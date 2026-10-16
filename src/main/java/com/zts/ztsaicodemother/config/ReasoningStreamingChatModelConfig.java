@@ -1,5 +1,6 @@
 package com.zts.ztsaicodemother.config;
 
+import dev.langchain4j.http.client.jdk.JdkHttpClient;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import lombok.Data;
@@ -30,6 +31,9 @@ public class ReasoningStreamingChatModelConfig {
                 .maxTokens(maxTokens)
                 .logRequests(true)
                 .logResponses(true)
+                // 显式指定客户端：classpath 上同时存在 SpringRestClient 与 JdkHttpClient 实现时，
+                // langchain4j 的 SPI 会因无法二选一而直接抛 IllegalStateException
+                .httpClientBuilder(JdkHttpClient.builder())
                 .build();
     }
 }

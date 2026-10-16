@@ -85,15 +85,18 @@
             <artifactId>langchain4j-open-ai-spring-boot-starter</artifactId>
             <version>1.1.0-beta7</version>
         </dependency>
+        <!-- JDK HttpClient 实现：用于覆盖 starter 默认的 Spring RestClient。
+             后者（Apache HttpClient 5）会声明支持 br 压缩，DeepSeek 的 EdgeOne 因此返回 Brotli，
+             该解压链路只把第一个字节交给 langchain4j，Jackson 报 JsonEOFException -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-http-client-jdk</artifactId>
+            <version>1.1.0</version>
+        </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-reactor</artifactId>
             <version>1.1.0-beta7</version>
-        </dependency>
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-http-client-jdk</artifactId>
-            <version>1.1.0</version>   <!-- Maven Central 上存在 1.1.0，与你的 core/open-ai 版本一致 -->
         </dependency>
         <!-- Redis -->
         <dependency>

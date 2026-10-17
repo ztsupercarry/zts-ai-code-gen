@@ -18,13 +18,23 @@ import org.springframework.context.annotation.Configuration;
  * starter 那个 SpringRestClient 的 bean 就不会再创建，autoconfigured 的 openAiChatModel 会拿到这里这个。
  *
  * <p>JDK HttpClient 不主动声明 br/deflate，DeepSeek 直接返回明文 JSON；它自带完整的 SSE 实现，
- * 如果流式模型也出现同样症状，可以照样覆盖 {@code openAiStreamingChatModelHttpClientBuilder}。
+ * 所以流式模型（openAiStreamingChatModel）同样覆盖成 JDK 客户端：
+ * 既避免 SSE 响应被 Brotli 截断，也能让上游的错误响应体（比如 400 的 JSON）完整地出现在异常里。
  */
 @Configuration
 public class LangChain4jHttpClientConfig {
 
     @Bean("openAiChatModelHttpClientBuilder")
     public HttpClientBuilder openAiChatModelHttpClientBuilder() {
+        return JdkHttpClient.builder();
+    }
+
+    /**
+     * 覆盖 starter 给 openAiStreamingChatModel 注入的 SpringRestClient。
+     * bean 名必须与 starter 里那个一致（@ConditionalOnMissingBean(name = ...) 才会让位）。
+     */
+    @Bean("openAiStreamingChatModelHttpClientBuilder")
+    public HttpClientBuilder openAiStreamingChatModelHttpClientBuilder() {
         return JdkHttpClient.builder();
     }
 }

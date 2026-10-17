@@ -1,6 +1,8 @@
 package com.zts.ztsaicodemother.langgraph4j.state;
 
+import com.zts.ztsaicodemother.langgraph4j.model.ImageCollectionPlan;
 import com.zts.ztsaicodemother.langgraph4j.model.ImageResource;
+import com.zts.ztsaicodemother.langgraph4j.model.QualityResult;
 import com.zts.ztsaicodemother.model.enums.CodeGenTypeEnum;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -71,6 +73,29 @@ public class WorkflowContext implements Serializable {
      * 错误信息
      */
     private String errorMessage;
+
+    /**
+     * 质量检查结果
+     */
+    private QualityResult qualityResult;
+
+    /**
+     * 质检未通过后已累计的检查失败次数，用于给「质检失败 → 重新生成」循环加上终止条件
+     */
+    private int qualityCheckRetryCount;
+
+    /**
+     * 图片收集计划
+     */
+    private ImageCollectionPlan imageCollectionPlan;
+
+    /**
+     * 并发图片收集的中间结果字段
+     */
+    private List<ImageResource> contentImages;
+    private List<ImageResource> illustrations;
+    private List<ImageResource> diagrams;
+    private List<ImageResource> logos;
 
     @Serial
     private static final long serialVersionUID = 1L;

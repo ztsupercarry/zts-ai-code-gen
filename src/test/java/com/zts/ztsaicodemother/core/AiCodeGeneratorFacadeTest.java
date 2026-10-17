@@ -20,13 +20,13 @@ class AiCodeGeneratorFacadeTest {
 
     @Test
     void generateAndSaveCode() {
-        File file = aiCodeGeneratorFacade.generateAndSaveCode("生成一个简单的任务记录工具网站", CodeGenTypeEnum.MULTI_FILE, 1L);
+        File file = aiCodeGeneratorFacade.generateAndSaveCode("生成一个某手机品牌的销售网站", CodeGenTypeEnum.MULTI_FILE, 6L);
         Assertions.assertNotNull(file);
     }
 
     @Test
     void generateAndSaveCodeStream() {
-        Flux<String> codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream("生成一个简单的博客网站，总代码不超过100行", CodeGenTypeEnum.MULTI_FILE, 3L);
+        Flux<String> codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream("生成一个某服装品牌的销售网站", CodeGenTypeEnum.MULTI_FILE, 8L);
         // 阻塞等待所有数据收集完成
         List<String> result = codeStream.collectList().block();
         // 验证结果

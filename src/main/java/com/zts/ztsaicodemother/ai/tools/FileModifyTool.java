@@ -1,5 +1,6 @@
 package com.zts.ztsaicodemother.ai.tools;
 
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import com.zts.ztsaicodemother.constant.AppConstant;
 import dev.langchain4j.agent.tool.P;
@@ -31,6 +32,16 @@ public class FileModifyTool extends BaseTool {
             String newContent,
             @ToolMemoryId Long appId
     ) {
+        // 模型偶尔会漏传参数（大段代码替换时尤其容易漏相对路径），先校验再执行，避免 NPE
+        if (StrUtil.isBlank(relativeFilePath)) {
+            return "错误：缺少参数 relativeFilePath（文件的相对路径），请带上该参数重新调用 modifyFile";
+        }
+        if (StrUtil.isEmpty(oldContent)) {
+            return "错误：缺少参数 oldContent（要替换的旧内容），请带上该参数重新调用 modifyFile";
+        }
+        if (newContent == null) {
+            return "错误：缺少参数 newContent（替换后的新内容），请带上该参数重新调用 modifyFile";
+        }
         try {
             Path path = Paths.get(relativeFilePath);
             if (!path.isAbsolute()) {

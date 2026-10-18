@@ -120,7 +120,20 @@ class AiServiceStreamingResponseHandler implements StreamingChatResponseHandler 
             for (ToolExecutionRequest toolExecutionRequest : aiMessage.toolExecutionRequests()) {
                 String toolName = toolExecutionRequest.name();
                 ToolExecutor toolExecutor = toolExecutors.get(toolName);
-                String toolExecutionResult = toolExecutor.execute(toolExecutionRequest, memoryId);
+                // 兜底：工具不存在、或工具返回 null/空文本时，也要给出一条非空结果。
+                // 否则 ToolExecutionResultMessage.from 会抛 IllegalArgumentException（text cannot be null or blank），
+                // 在 SSE 完成回调里抛出会把整条流和当前工作流节点直接打断。
+                String toolExecutionResult;
+                if (toolExecutor == null) {
+                    toolExecutionResult = "工具执行失败：找不到名为 " + toolName + " 的工具";
+                    LOG.warn(toolExecutionResult);
+                } else {
+                    toolExecutionResult = toolExecutor.execute(toolExecutionRequest, memoryId);
+                    if (toolExecutionResult == null || toolExecutionResult.isBlank()) {
+                        toolExecutionResult = "工具执行失败（返回结果为空）: " + toolName;
+                        LOG.warn(toolExecutionResult);
+                    }
+                }
                 ToolExecutionResultMessage toolExecutionResultMessage =
                         ToolExecutionResultMessage.from(toolExecutionRequest, toolExecutionResult);
                 addToMemory(toolExecutionResultMessage);

@@ -1,5 +1,6 @@
 package com.zts.ztsaicodemother.ai.tools;
 
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import com.zts.ztsaicodemother.constant.AppConstant;
 import dev.langchain4j.agent.tool.P;
@@ -28,6 +29,10 @@ public class FileDeleteTool extends BaseTool{
             String relativeFilePath,
             @ToolMemoryId Long appId
     ) {
+        // 模型偶尔会漏传参数，先校验并返回明确错误，避免工具内 NPE 把整条流打断
+        if (StrUtil.isBlank(relativeFilePath)) {
+            return "错误：缺少参数 relativeFilePath（文件的相对路径），请带上该参数重新调用 deleteFile";
+        }
         try {
             Path path = Paths.get(relativeFilePath);
             if (!path.isAbsolute()) {

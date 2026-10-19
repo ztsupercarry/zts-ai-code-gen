@@ -120,19 +120,25 @@ class AiServiceStreamingResponseHandler implements StreamingChatResponseHandler 
             for (ToolExecutionRequest toolExecutionRequest : aiMessage.toolExecutionRequests()) {
                 String toolName = toolExecutionRequest.name();
                 ToolExecutor toolExecutor = toolExecutors.get(toolName);
-                // 兜底：工具不存在、或工具返回 null/空文本时，也要给出一条非空结果。
-                // 否则 ToolExecutionResultMessage.from 会抛 IllegalArgumentException（text cannot be null or blank），
-                // 在 SSE 完成回调里抛出会把整条流和当前工作流节点直接打断。
+                // 兜底：每个 tool_call 都必须配一条非空 tool 结果并写入记忆。
+                // 否则记忆里会留下「不完整的工具回合」——assistant 消息的 tool_calls 缺对应结果，
+                // 下一次请求会被模型服务以 "insufficient tool messages following tool_calls message" 拒绝（400），
+                // 而且这个脏记忆会一直卡住同一个 appId 的后续请求。
                 String toolExecutionResult;
-                if (toolExecutor == null) {
-                    toolExecutionResult = "工具执行失败：找不到名为 " + toolName + " 的工具";
-                    LOG.warn(toolExecutionResult);
-                } else {
-                    toolExecutionResult = toolExecutor.execute(toolExecutionRequest, memoryId);
-                    if (toolExecutionResult == null || toolExecutionResult.isBlank()) {
-                        toolExecutionResult = "工具执行失败（返回结果为空）: " + toolName;
-                        LOG.warn(toolExecutionResult);
+                try {
+                    if (toolExecutor == null) {
+                        toolExecutionResult = "工具执行失败：找不到名为 " + toolName + " 的工具";
+                    } else {
+                        toolExecutionResult = toolExecutor.execute(toolExecutionRequest, memoryId);
+                        if (toolExecutionResult == null || toolExecutionResult.isBlank()) {
+                            toolExecutionResult = "工具执行失败（返回结果为空）: " + toolName;
+                        }
                     }
+                } catch (Exception e) {
+                    // 工具抛异常时同样补一条结果，保证 tool_calls 与 tool 结果一一配对
+                    toolExecutionResult = "工具执行异常(" + e.getClass().getSimpleName() + "): "
+                            + (e.getMessage() == null ? "无异常信息" : e.getMessage());
+                    LOG.warn("工具 {} 执行异常，已转为错误结果写入记忆", toolName, e);
                 }
                 ToolExecutionResultMessage toolExecutionResultMessage =
                         ToolExecutionResultMessage.from(toolExecutionRequest, toolExecutionResult);

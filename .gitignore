@@ -1,6 +1,7 @@
 ### CUSTOM ###
 application-local.yaml
 tmp
+docs/image_tool
 
 HELP.md
 target/

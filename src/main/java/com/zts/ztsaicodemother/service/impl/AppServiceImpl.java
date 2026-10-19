@@ -81,7 +81,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     private ScreenshotServiceImpl screenshotService;
 
     @Resource
-    private AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService;
+    private AiCodeGenTypeRoutingServiceFactory aiCodeGenTypeRoutingServiceFactory;
 
     @Override
     public Flux<String> chatToGenCode(Long appId, String message, User loginUser) {
@@ -123,8 +123,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         String defaultAppName = initPrompt.trim();
         app.setAppName(defaultAppName.substring(0,
                 Math.min(defaultAppName.length(), AppConstant.DEFAULT_APP_NAME_LENGTH)));
-        // 使用 AI 选择代码生成类型
-        CodeGenTypeEnum selectedCodeGenType  = aiCodeGenTypeRoutingService.routeCodeGenType(initPrompt);
+        // 使用 AI 智能选择代码生成类型（多例模式）
+        AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService = aiCodeGenTypeRoutingServiceFactory.createAiCodeGenTypeRoutingService();
+        CodeGenTypeEnum selectedCodeGenType = aiCodeGenTypeRoutingService.routeCodeGenType(initPrompt);
         app.setCodeGenType(selectedCodeGenType.getValue());
         // 插入数据库
         boolean result = this.save(app);
